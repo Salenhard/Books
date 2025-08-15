@@ -1,25 +1,27 @@
 package com.salenhard.books.entity;
 
+import com.salenhard.books.entity.DTO.UserDto;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 @Entity
 @Getter
 @Setter
 @NoArgsConstructor
-public class Book {
+public class Book implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
-
     private String name;
     @ManyToOne
-    private Author author;
+    private User user;
 
     @Override
     public final boolean equals(Object o) {
