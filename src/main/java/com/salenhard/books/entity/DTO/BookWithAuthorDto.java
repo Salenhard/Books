@@ -14,5 +14,5 @@ public class BookWithAuthorDto {
     @Schema(description = "Book name", example = "The witcher")
     String name;
     @Schema(description = "Author", exampleClasses = UserDto.class)
-    UserDto author;
+    UserDto user;
 }

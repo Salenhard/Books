@@ -14,22 +14,23 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/authors/{authorId}/books")
+@RequestMapping("/api/v1/users/{userId}/books")
 @RequiredArgsConstructor
 @Tag(name = "Books", description = "Operations with books")
+@Slf4j
 public class BookController {
     private final BookService service;
-    private final KafkaTemplate<String, BookWithAuthorDto> kafkaTemplate;
-    private static final String KAFKA_TOPIC_NAME = "my_topic";
     private final BookMapper bookMapper;
     private final BookWithAuthorMapper bookWithAuthorMapper;
 
@@ -40,9 +41,12 @@ public class BookController {
                     content = @Content(schema = @Schema(implementation = String.class))),
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteById(@PathVariable @Parameter(description = "User id", example = "1") Long authorId,
-                                        @PathVariable @Parameter(description = "Book id", example = "1") Long id) {
-        service.deleteById(authorId, id);
+    public ResponseEntity<?> deleteById(@PathVariable @Parameter(description = "User id", example = "1") Long userId,
+                                        @PathVariable @Parameter(description = "Book id", example = "1") Long id,
+                                        HttpServletRequest request) {
+        log.info("DELETE /api/v1/users/{}/{} - Client IP:{}", userId, id, request.getRemoteAddr());
+        service.deleteById(userId, id);
+        log.info("Book deleted successfully - ID:{}", id);
         return ResponseEntity.noContent().build();
     }
 
@@ -54,11 +58,13 @@ public class BookController {
             @ApiResponse(responseCode = "404", description = "Author or book is not found",
                     content = @Content(schema = @Schema(implementation = String.class))),
     })
-
     @GetMapping("/{id}")
-    public ResponseEntity<?> getById(@PathVariable @Parameter(description = "User id", example = "1") Long authorId,
-                                     @PathVariable @Parameter(description = "Book id", example = "1") Long id) {
-        Book book = service.getById(authorId, id);
+    public ResponseEntity<?> getById(@PathVariable @Parameter(description = "User id", example = "1") Long userId,
+                                     @PathVariable @Parameter(description = "Book id", example = "1") Long id,
+                                     HttpServletRequest request) {
+        log.info("POST /api/v1/users/{}/books/{} - Client IP: {}", userId, id, request.getRemoteAddr());
+        Book book = service.getById(userId, id);
+        log.info("Book successfully fetched - ID:{}", id);
         BookWithAuthorDto bookDto = bookWithAuthorMapper.toDto(book);
         return ResponseEntity.ok(bookDto);
     }
@@ -72,11 +78,14 @@ public class BookController {
                     content = @Content(schema = @Schema(implementation = String.class))),
     })
     @GetMapping
-    public ResponseEntity<?> getAll(@PathVariable @Parameter(description = "User id", example = "1") Long authorId) {
-        List<BookWithAuthorDto> bookList = service.getAllByAuthorId(authorId)
+    public ResponseEntity<?> getAll(@PathVariable @Parameter(description = "User id", example = "1") Long userId,
+                                    HttpServletRequest request) {
+        log.info("GET /api/v1/users/{}/books - Client IP: {}", userId, request.getRemoteAddr());
+        List<BookWithAuthorDto> bookList = service.getAllByUserId(userId)
                 .stream()
                 .map(bookWithAuthorMapper::toDto)
                 .toList();
+        log.info("Books successfully fetched by user id - ID:{}", userId);
         return ResponseEntity.ok(bookList);
     }
 
@@ -91,12 +100,14 @@ public class BookController {
                     content = @Content(schema = @Schema(implementation = MethodArgumentNotValidException.class)))
     })
     @PostMapping
-    public ResponseEntity<?> save(@PathVariable Long authorId,
-                                  @RequestBody BookDto bookDto) {
+    public ResponseEntity<?> save(@PathVariable Long userId,
+                                  @Valid @RequestBody BookDto bookDto,
+                                  HttpServletRequest request) {
+        log.info("POST /api/v1/users/{}/books - Client IP:{}", userId, request.getRemoteAddr());
         Book book = bookMapper.toEntity(bookDto);
-        book = service.save(authorId, book);
+        book = service.save(userId, book);
+        log.info("Book created successfully - ID:{}", book.getId());
         BookWithAuthorDto bookWithAuthorDto = bookWithAuthorMapper.toDto(book);
-        kafkaTemplate.send(KAFKA_TOPIC_NAME, bookWithAuthorDto);
         return ResponseEntity.ok(bookWithAuthorDto);
     }
 
@@ -111,11 +122,14 @@ public class BookController {
                     content = @Content(schema = @Schema(implementation = MethodArgumentNotValidException.class)))
     })
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable @Parameter(description = "User id", example = "1") Long authorId,
-                                    @PathVariable @Parameter(description = "User id", example = "1") Long id,
-                                    @RequestBody BookDto bookDto) {
+    public ResponseEntity<?> update(@PathVariable @Parameter(description = "User id", example = "1") Long userId,
+                                    @PathVariable @Parameter(description = "Book id", example = "1") Long id,
+                                    @Valid @RequestBody BookDto bookDto,
+                                    HttpServletRequest request) {
+        log.info("PUT /api/v1/users/{}/books/{} - Client IP:{}", userId, id, request.getRemoteAddr());
         Book book = bookMapper.toEntity(bookDto);
-        book = service.update(authorId, id, book);
+        book = service.update(userId, id, book);
+        log.info("Book successfully updated - ID:{}", book.getId());
         BookWithAuthorDto bookWithAuthorDto = bookWithAuthorMapper.toDto(book);
         return ResponseEntity.ok(bookWithAuthorDto);
     }

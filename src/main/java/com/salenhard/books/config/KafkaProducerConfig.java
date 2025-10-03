@@ -1,6 +1,7 @@
 package com.salenhard.books.config;
 
 import com.salenhard.books.entity.DTO.BookWithAuthorDto;
+import com.salenhard.books.entity.Notification;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,10 +21,10 @@ public class KafkaProducerConfig {
     private String bootstrapAddress;
 
     @Bean
-    public ProducerFactory<String, BookWithAuthorDto> producerFactory() {
+    public ProducerFactory<String, Notification> producerFactory() {
         Map<String, Object> props = new HashMap<>();
 
-        JsonSerializer<BookWithAuthorDto> serializer = new JsonSerializer<>();
+        JsonSerializer<Notification> serializer = new JsonSerializer<>();
         serializer.setAddTypeInfo(false);
         props.put(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -34,7 +35,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, BookWithAuthorDto> kafkaTemplate() {
+    public KafkaTemplate<String, Notification> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
     }
 }

@@ -1,4 +1,35 @@
 services:
+  books:
+    image: books:latest
+    build: .
+    restart: "no"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - kafka
+      - redis
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secret
+      POSTGRES_DB: mydb
+      POSTGRES_HOST: postgres:5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_HOST: kafka:9092
+    volumes:
+      - ./logs:/application/logs
+  filebeat:
+    image: elastic/filebeat:8.19.4
+    hostname: "filebeat"
+    user: root
+    volumes:
+      - ./data:/usr/share/filebeat/data
+      - ${PWD}/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ${PWD}/logs:/logs:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers/:/var/lib/docker/containers/:ro
+    command: ["--strict.perms=false"]
   postgres:
     image: postgres:17.5
     restart: "no"
@@ -10,6 +41,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_secret
       POSTGRES_DB: mydb
+      POSTGRES_HOST: postgres:5432
     healthcheck:
       test: pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
       interval: 10s
@@ -20,10 +52,10 @@ services:
     image: confluentinc/cp-kafka:8.0.0
     restart: "no"
     ports:
-      - "29092:29092"
       - "9092:9092"
+      - "29092:29092"
     volumes:
-      - kafka_data:/var/lib/kafka/data
+    - kafka_data:/var/lib/kafka/data
     environment:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
@@ -48,23 +80,38 @@ services:
     restart: "no"
     ports:
       - "6379:6379"
+    command: [ "redis-server", "--bind", "0.0.0.0", "--port", "6379" ]
     healthcheck:
-      test: redis-cli ping
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
-      start_period: 10s
       retries: 5
-
-  books:
-    image: books:latest
-    build: .
-    restart: "no"
+      start_period: 10s
+  elasticsearch:
+    image: elasticsearch:9.1.4
+    container_name: elasticsearch
+    mem_limit: 3g
+    environment:
+      - discovery.type=single-node
+      - cluster.name=kernel-logs
+      - node.name=node-1
+      - xpack.security.enabled=false
+      - path.data=/data
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
     ports:
-      - "8080:8080"
+      - "9201:9200"
+    volumes:
+      - ./esdata:/data
+  kibana:
+    image: kibana:9.1.4
+    container_name: kibana
     depends_on:
-      - postgres
-      - kafka
-      - redis
+      - elasticsearch
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+    ports:
+      - "5601:5601"
 volumes:
   postgres_data:
   kafka_data:
+  esdata:
